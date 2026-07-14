@@ -3,7 +3,7 @@ import sqlite3
 import telebot
 from groq import Groq
 
-# جلب المفاتيح والمعرفات السريّة من بيئة ريلواي تلقائياً - تطابق كامل للاسم والقيمة
+# جلب المفاتيح والمعرفات السريّة من بيئة ريلواي تلقائياً
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")  
 
@@ -19,12 +19,12 @@ MAMA_USERNAME = os.getenv("MAMA_USERNAME", "Your_Mama_Username")
 strangers_tracker = {}
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-groq_client = Groq(api_key=GROQ_API_KEY)  # استخدام المتغير المطابق بدقة
+groq_client = Groq(api_key=GROQ_API_KEY)
 
 DB_FILE = "family_memory.db"
 
 def init_db():
-    """إنشاء جدول حفظ المحادثات وتصفيره لتجنب كراش التعارض القديم"""
+    """إنشاء جدول حفظ المحادثات وتصفيره تماماً لبدء سياق نظيف"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -34,7 +34,7 @@ def init_db():
             content TEXT
         )
     """)
-    cursor.execute("DELETE FROM chat_history")  # تنظيف الجدول تماماً لبدء سياق نظيف
+    cursor.execute("DELETE FROM chat_history")  # مسح الشوائب القديمة المسببة للتعليق
     conn.commit()
     conn.close()
 
@@ -47,17 +47,17 @@ def save_message(user_id, role, content):
     conn.close()
 
 def get_chat_history(user_id):
-    """جلب الرسائل السابقة المتبادلة دون استخدام عمود id المسبب للكراش"""
+    """جلب الرسائل السابقة بالصيغة النصية المباشرة والمثالية لجروج"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT role, content FROM chat_history WHERE user_id = ? LIMIT 15", (user_id,))
+    cursor.execute("SELECT role, content FROM chat_history WHERE user_id = ? LIMIT 10", (user_id,))
     rows = cursor.fetchall()
     conn.close()
     
-    # الصياغة المعتمدة والمتوافقة تماماً مع نماذج جروج الحديثة (user و assistant)
+    # صياغة مبسطة ومضمونة 100% لعدم رفض الطلب من جروج
     history = []
     for row in rows:
-        history.append({"role": "user" if row == "user" else "assistant", "content": row})
+        history.append({"role": row[0], "content": row[1]})
     return history
 
 # تهيئة وتصفير الجدول لتفادي انهيار السيرفر
@@ -80,12 +80,15 @@ SYSTEM_PROMPT = """
 """
 
 def get_ai_response_with_memory(user_id, user_message, role_context):
-    # بناء حمولة الرسائل لجروج بشكل سليم ومتناسق مع الأدوار
+    # بناء حمولة الرسائل متوافقة 100% مع شروط جروج الصارمة للأدوار
     messages_payload = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    # دمج الذاكرة القديمة
     db_history = get_chat_history(user_id)
     messages_payload.extend(db_history)
     
-    current_prompt = f"[المتحدث هو {role_context}]: {user_message}"
+    # إضافة الرسالة الجديدة الحالية لحساب المتحدث
+    current_prompt = f"[{role_context}]: {user_message}"
     messages_payload.append({"role": "user", "content": current_prompt})
     
     try:
@@ -93,9 +96,9 @@ def get_ai_response_with_memory(user_id, user_message, role_context):
             messages=messages_payload,
             model="llama-3.3-70b-versatile",
         )
-        ai_reply = chat_completion.choices.message.content
+        ai_reply = chat_completion.choices[0].message.content
         
-        # حفظ الرسالة الحالية والرد في الذاكرة الدائمة
+        # حفظ الرسالة والرد في قاعدة البيانات للذاكرة الدائمة
         save_message(user_id, "user", current_prompt)
         save_message(user_id, "assistant", ai_reply)
         return ai_reply
@@ -109,15 +112,15 @@ def handle_all_messages(message):
     user_text = message.text
 
     if user_id == PAPA_ID:
-        response = get_ai_response_with_memory(user_id, user_text, "والدكِ العزيز عبدالرحمن (خَطَّاب الحضرمي) المتواجد في اليمن")
+        response = get_ai_response_with_memory(user_id, user_text, "بابا عبدالرحمن")
         bot.reply_to(message, response)
         
     elif user_id == MAMA_ID:
-        response = get_ai_response_with_memory(user_id, user_text, "والدتكِ الغالية حنين (الأندلسية) المتواجدة معكِ في الجزائر")
+        response = get_ai_response_with_memory(user_id, user_text, "يما حنين")
         bot.reply_to(message, response)
         
     elif user_id == KHALA_MILA_ID:
-        response = get_ai_response_with_memory(user_id, user_text, "خالتكِ العزيزة ميلا (أخت أمكِ) المتواجدة في مارسيليا بفرنسا")
+        response = get_ai_response_with_memory(user_id, user_text, "خالتي ميلا")
         bot.reply_to(message, response)
         
     else:
@@ -163,6 +166,6 @@ def handle_all_messages(message):
                 except Exception as e:
                     print(f"تعذر إرسال التنبيه العائلي إلى {family_id}: {e}")
 
-print("البوت مصلح ومطابق 100% ويعمل الآن...")
+print("البوت مصلح نهائياً وبأعلى كفاءة...")
 bot.infinity_polling()
-    
+            
