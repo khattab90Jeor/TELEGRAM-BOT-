@@ -221,5 +221,16 @@ def automation_worker():
                 safe_send(PAPA_ID, msg)
                 safe_send(MAMA_ID, msg)
                 safe_send(KHALA_MILA_ID, msg)
-                time.sleep(60)
+
+            for family_id in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
+                check_shawk(family_id, "عائلتي")
+
+            time.sleep(60)
         except Exception as e:
+            print(f"خطأ في automation_worker: {e}")
+            time.sleep(60)
+
+if __name__ == "__main__":
+    Thread(target=automation_worker, daemon=True).start()
+    print("عقيدة راهي طالقة وبدات تخدم... 🤖")
+    bot.infinity_polling()
