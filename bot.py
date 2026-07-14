@@ -5,7 +5,7 @@ from groq import Groq
 
 # جلب المفاتيح والمعرفات السريّة من بيئة ريلواي تلقائياً باسم GROQ_API_KEY المتوافق مع المكتبة
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-AI_API_KEY = os.getenv("GROQ_API_KEY")  
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")  
 
 # معرفات حساباتكم العائلية الرقمية (IDs) - ثابتة ومؤكدة
 PAPA_ID = 6856665810       # عبدالرحمن (خَطَّاب الحضرمي)
