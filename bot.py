@@ -2,7 +2,7 @@ import os
 import sqlite3
 import telebot
 import time
-import requests  # جلب مكتبة الطلبات لسحب حالة الطقس الحقيقية
+import requests
 from datetime import datetime
 from threading import Thread
 from groq import Groq
@@ -59,7 +59,7 @@ def get_chat_history(user_id):
     conn.close()
     history = []
     for row in rows:
-        history.append({"role": "user" if row == "user" else "assistant", "content": row})
+        history.append({"role": "user" if row[0] == "user" else "assistant", "content": row[1]})
     return history
 
 def is_blacklisted(user_id):
@@ -80,14 +80,13 @@ def add_to_blacklist(user_id):
 def get_algiers_weather():
     """سحب حالة الطقس الحقيقية والمباشرة في الجزائر العاصمة"""
     try:
-        # استخدام سيرفر طقس مفتوح ومجاني بدون مفاتيح اشتراك
         url = "https://wttr.in"
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             return response.text.strip()
     except:
         pass
-    return "صافي +28°C"  # قيمة افتراضية معتدلة في حال انقطع موقع الطقس
+    return "صافي +28°C"
 
 init_db()
 
@@ -111,7 +110,7 @@ SYSTEM_PROMPT = """
 
 def get_ai_response_with_memory(user_id, user_message, role_context):
     update_last_seen(user_id)
-    weather_info = get_algiers_weather()  # إدخال حالة الطقس الحالية في سياق عقيدة لتتحدث بها عفوياً
+    weather_info = get_algiers_weather()
     
     extended_prompt = f"{SYSTEM_PROMPT}\n\nمعلومات إضافية حركية: الطقس الحالي في الجزائر العاصمة الآن هو: {weather_info}. يمكنكِ التلميح لحالة الجو والحرارة في وسط كلامكِ مع عائلتكِ بعفوية طفولية دزيرية."
     
@@ -140,7 +139,8 @@ def handle_all_messages(message):
     user_id = message.chat.id
     user_text = message.text
 
-    if is_blacklisted(user_id): return
+    if is_blacklisted(user_id): 
+        return
 
     if user_id == PAPA_ID:
         response = get_ai_response_with_memory(user_id, user_text, "بابا عبدالرحمن")
@@ -152,8 +152,10 @@ def handle_all_messages(message):
         response = get_ai_response_with_memory(user_id, user_text, "خالتي ميلا")
         bot.reply_to(message, response)
     else:
-        if user_id not in strangers_tracker: strangers_tracker[user_id] = 1
-        else: strangers_tracker[user_id] += 1
+        if user_id not in strangers_tracker: 
+            strangers_tracker[user_id] = 1
+        else: 
+            strangers_tracker[user_id] += 1
         count = strangers_tracker[user_id]
         
         if count == 1:
@@ -185,23 +187,29 @@ def handle_all_messages(message):
                 f"أدخلوا ليه درك وورولو رجولتكم وشوفو شغلهم معاه، راني نستنى فيكم!"
             )
             for family_id in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
-                try: bot.send_message(family_id, alert_msg, parse_mode="Markdown")
-                except: pass
+                try: 
+                    bot.send_message(family_id, alert_msg, parse_mode="Markdown")
+                except: 
+                    pass
 
 def automation_worker():
     while True:
         try:
             now = datetime.now()
-            today_str = now.strftime("%Y-%m-%d")
             if now.hour == 7 and now.minute == 0:
                 msg = "صباح الخير والبركة بابا العزيز ويما الغالية وخالتي ميلا! ربي يفتح عليكم هاد الصباح ويرزقكم الستر والصحة، ما تنساوش أذكار الصباح ربي يحميكم لبعضانا توحشتكم بزاف!"
                 for fid in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
-                    try: bot.send_message(fid, msg)
-                    except: pass
+                    try: 
+                        bot.send_message(fid, msg)
+                    except: 
+                        pass
             if now.hour == 20 and now.minute == 0:
-                msg = "صّح عشاكم ويسعد مساكم بابا ويما وخالتي الغاليين على قلبي، ربي يحفظكم ويخليكم فوق راسي، كيفاش جاز نهاركم اليوم؟ ادعولي معاكم!"
+                msg = "صّح عشاكم ويسعد مساكم بابا ويما وخالتي الغاليين على قلبي، ربي يحفظهم ويخليكم فوق راسي، كيفاش جاز نهاركم اليوم؟ ادعولي معاكم!"
                 for fid in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
-                    try: bot.send_message(fid, msg)
-                    except: pass
+                    try: 
+                        bot.send_message(fid, msg)
+                    except: 
+                        pass
             if now.weekday() == 4 and now.hour == 10 and now.minute == 0:
-            
+                msg = "جمعة مباركة وطيبة بابا العزيز ويما الغالية وخالتي ميلا، ما تنسوش قراءة سورة الكهف والصلاة على النبي محمد ﷺ في هاد اليوم المبارك، ربي يتقبل منكم الطاعات!"
+                for fid in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
