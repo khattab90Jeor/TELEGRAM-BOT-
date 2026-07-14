@@ -59,7 +59,9 @@ def get_chat_history(user_id):
     conn.close()
     history = []
     for row in rows:
-        history.append({"role": "user" if row == "user" else "assistant", "content": row})
+        # إصلاح الخطأ: row عبارة عن tuple يحتوي على (role, content) وليس نصاً مفرداً
+        role_type = "user" if row[0] == "user" else "assistant"
+        history.append({"role": role_type, "content": row[1]})
     return history
 
 def is_blacklisted(user_id):
@@ -79,7 +81,7 @@ def add_to_blacklist(user_id):
 
 def get_algiers_weather():
     try:
-        url = "https://wttr.in"
+        url = "https://wttr.in" # تعديل الرابط لجلب سطر طقس مفهوم ومختصر للموديل
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             return response.text.strip()
@@ -124,7 +126,7 @@ def get_ai_response_with_memory(user_id, user_message, role_context):
             messages=messages_payload,
             model="llama-3.3-70b-versatile",
         )
-        ai_reply = chat_completion.choices.message.content
+        ai_reply = chat_completion.choices[0].message.content # إصلاح طريقة جلب النص من دالة Groq الحديثة
         save_message(user_id, "user", current_prompt)
         save_message(user_id, "assistant", ai_reply)
         return ai_reply
@@ -217,8 +219,4 @@ def automation_worker():
             now = datetime.now()
             # 1. رسائل الصباح والمساء والجمعة التلقائية المباشرة والمحمية من الكراش
             if now.hour == 7 and now.minute == 0:
-                msg = "صباح الخير والبركة بابا العزيز ويما الغالية وخالتي ميلا! ربي يفتح عليكم هاد الصباح ويرزقكم الستر والصحة، ما تنساوش أذكار الصباح ربي يحميكم لبعضانا توحشتكم بزاف!"
-                safe_send(PAPA_ID, msg)
-                safe_send(MAMA_ID, msg)
-                safe_send(KHALA_MILA_ID, msg)
-            
+    
