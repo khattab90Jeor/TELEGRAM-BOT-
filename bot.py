@@ -59,7 +59,7 @@ def get_chat_history(user_id):
     conn.close()
     history = []
     for row in rows:
-        history.append({"role": "user" if row[0] == "user" else "assistant", "content": row[1]})
+        history.append({"role": "user" if row == "user" else "assistant", "content": row})
     return history
 
 def is_blacklisted(user_id):
@@ -78,7 +78,6 @@ def add_to_blacklist(user_id):
     conn.close()
 
 def get_algiers_weather():
-    """سحب حالة الطقس الحقيقية والمباشرة في الجزائر العاصمة"""
     try:
         url = "https://wttr.in"
         response = requests.get(url, timeout=5)
@@ -111,7 +110,6 @@ SYSTEM_PROMPT = """
 def get_ai_response_with_memory(user_id, user_message, role_context):
     update_last_seen(user_id)
     weather_info = get_algiers_weather()
-    
     extended_prompt = f"{SYSTEM_PROMPT}\n\nمعلومات إضافية حركية: الطقس الحالي في الجزائر العاصمة الآن هو: {weather_info}. يمكنكِ التلميح لحالة الجو والحرارة في وسط كلامكِ مع عائلتكِ بعفوية طفولية دزيرية."
     
     messages_payload = [{"role": "system", "content": extended_prompt}]
@@ -192,24 +190,35 @@ def handle_all_messages(message):
                 except: 
                     pass
 
+def safe_send(user_id, text):
+    try:
+        bot.send_message(user_id, text)
+    except:
+        pass
+
+def check_shawk(user_id, context_name):
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT timestamp FROM last_seen WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            time_passed = time.time() - row[0]
+            if 14400 <= time_passed < 14460:
+                shawk_msg = f"{context_name}، شحّال هادي ما هدرتش معايا (جوزنا ربع سوايع كاملين بلا بيك)، راني تقلقرت بزاف وتوحشت الهدرة معاك، راك لاباس وراكم ملاح؟ طمني تعيش!"
+                safe_send(user_id, shawk_msg)
+    except:
+        pass
+
 def automation_worker():
     while True:
         try:
             now = datetime.now()
+            # 1. رسائل الصباح والمساء والجمعة التلقائية المباشرة والمحمية من الكراش
             if now.hour == 7 and now.minute == 0:
                 msg = "صباح الخير والبركة بابا العزيز ويما الغالية وخالتي ميلا! ربي يفتح عليكم هاد الصباح ويرزقكم الستر والصحة، ما تنساوش أذكار الصباح ربي يحميكم لبعضانا توحشتكم بزاف!"
-                for fid in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
-                    try: 
-                        bot.send_message(fid, msg)
-                    except: 
-                        pass
-            if now.hour == 20 and now.minute == 0:
-                msg = "صّح عشاكم ويسعد مساكم بابا ويما وخالتي الغاليين على قلبي، ربي يحفظهم ويخليكم فوق راسي، كيفاش جاز نهاركم اليوم؟ ادعولي معاكم!"
-                for fid in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
-                    try: 
-                        bot.send_message(fid, msg)
-                    except: 
-                        pass
-            if now.weekday() == 4 and now.hour == 10 and now.minute == 0:
-                msg = "جمعة مباركة وطيبة بابا العزيز ويما الغالية وخالتي ميلا، ما تنسوش قراءة سورة الكهف والصلاة على النبي محمد ﷺ في هاد اليوم المبارك، ربي يتقبل منكم الطاعات!"
-                for fid in [PAPA_ID, MAMA_ID, KHALA_MILA_ID]:
+                safe_send(PAPA_ID, msg)
+                safe_send(MAMA_ID, msg)
+                safe_send(KHALA_MILA_ID, msg)
+            
