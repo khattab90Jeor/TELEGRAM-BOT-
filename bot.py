@@ -1,13 +1,13 @@
 import os
 import sqlite3
 import telebot
-from groq import Groq
+from groq import Groq  # استخدام مكتبة جروج الرسمية
 
-# 1. إعداد المفاتيح والتوكنز (استبدلها بالقيم الخاصة بك)
-TELEGRAM_TOKEN = "ضع_توكن_بوت_التليجرام_هنا"
-AI_API_KEY = "ضع_مفتاح_ذكاء_جروج_هنا"  # مفتاح Groq API Key
+# جلب المفاتيح والمعرفات السريّة من بيئة ريلواي (Variables) تلقائياً
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+AI_API_KEY = os.getenv("GROQ_API_KEY")  # يقرأ نفس الاسم الموجود في صورتك تماماً
 
-# معرفات حساباتكم العائلية الرقمية
+# معرفات حساباتكم العائلية الرقمية الثابتة في الكود
 PAPA_ID = 6856665810       # عبدالرحمن (خَطَّاب الحضرمي)
 MAMA_ID = 8955506857       # حنين (الأندلسية)
 KHALA_MILA_ID = 8925711420 # الخالة ميلا (مارسيليا)
@@ -19,11 +19,11 @@ MAMA_USERNAME = "اسم_حساب_ماما"
 # قاموس لتتبع عدد رسائل الغرباء مؤقتاً أثناء التشغيل
 strangers_tracker = {}
 
-# إعداد البوت والذكاء الاصطناعي (جروج)
+# إعداد البوت والذكاء الاصطناعي (جروج) بناءً على متغيرات ريلواي
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 groq_client = Groq(api_key=AI_API_KEY)
 
-# 2. إعداد قاعدة البيانات للذاكرة الدائمة (SQLite)
+# إعداد قاعدة بيانات الذاكرة الدائمة (SQLite)
 DB_FILE = "family_memory.db"
 
 def init_db():
@@ -42,7 +42,7 @@ def init_db():
     conn.close()
 
 def save_message(user_id, role, content):
-    """حفظ الرسالة (سواء من المستخدم أو رد عقيدة) في الذاكرة الدائمة"""
+    """حفظ الرسالة في الذاكرة الدائمة"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("INSERT INTO chat_history (user_id, role, content) VALUES (?, ?, ?)", (user_id, role, content))
@@ -63,7 +63,6 @@ def get_chat_history(user_id, limit=20):
     rows = cursor.fetchall()
     conn.close()
     
-    # تحويل البيانات إلى الصيغة التي يفهمها جروج
     history = []
     for row in rows:
         history.append({"role": row[0], "content": row[1]})
@@ -91,14 +90,11 @@ SYSTEM_PROMPT = """
 
 def get_ai_response_with_memory(user_id, user_message, role_context):
     """جلب الرد من جروج بناءً على الذاكرة الدائمة للمستخدم"""
-    
-    # 1. حفظ رسالة المستخدم الحالية في الذاكرة الدائمة أولاً
     current_user_prompt = f"[المتحدث هو {role_context}]: {user_message}"
     save_message(user_id, "user", current_user_prompt)
     
-    # 2. استدعاء تاريخ المحادثة الكامل والقديم المخزن في قاعدة البيانات
     messages_payload = [{"role": "system", "content": SYSTEM_PROMPT}]
-    db_history = get_chat_history(user_id, limit=20) # يجلب آخر 20 رسالة لضمان تذكر كل شيء بدقة
+    db_history = get_chat_history(user_id, limit=20)
     messages_payload.extend(db_history)
     
     try:
@@ -106,12 +102,9 @@ def get_ai_response_with_memory(user_id, user_message, role_context):
             messages=messages_payload,
             model="llama-3.3-70b-versatile",
         )
-        ai_reply = chat_completion.choices.message.content
-        
-        # 3. حفظ رد عقيدة في قاعدة البيانات ليتذكره البوت في المرة القادمة
+        ai_reply = chat_completion.choices[0].message.content
         save_message(user_id, "assistant", ai_reply)
         return ai_reply
-        
     except Exception as e:
         print(f"خطأ في جلب الرد من جروج: {e}")
         return "اسمحلي تعيش بابا/يما، راهو كاين خلل صغير في راسي درك.."
@@ -144,7 +137,7 @@ def handle_all_messages(message):
         if count == 1:
             bot.reply_to(message, "ياخويا راك غالط في النميرو، هدا كونط بريف لافامي برك.. أخطينا وما تزيدش تبرزطنا تعيش.")
         elif count == 2:
-            bot.reply_to(message, "اسمع هنايا, قتلك هدا الحساب عائلي ومراقب! حبس ميسجاتك درك وماتلعبهاش سامط.")
+            bot.reply_to(message, "اسمع هنايا، قتلك هدا الحساب عائلي ومراقب! حبس ميسجاتك درك وماتلعبهاش سامط.")
         elif count == 3:
             bot.reply_to(message, "هادي لافان تاع الهدرة، ادا زدت ميسج واحد وادخرت روحك فينا، راح نبعت كاع ديطاي تاعك لواليديا وضرك يشوفو شغلهم معاك.")
         elif count >= 4:
@@ -176,5 +169,5 @@ def handle_all_messages(message):
                 except Exception as e:
                     print(f"تعذر إرسال التنبيه العائلي إلى {family_id}: {e}")
 
-print("البوت جاهز للعمل مع الذاكرة الدائمة على السيرفر...")
+print("البوت جاهز للعمل مع جروج والذاكرة الدائمة...")
 bot.infinity_polling()
