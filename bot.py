@@ -251,8 +251,8 @@ def handle_all_messages(message):
 def safe_send(user_id, text):
     try:
         bot.send_message(user_id, text)
-    except:
-        pass
+    except Exception as e:
+        print(f"خطأ في إرسال رسالة إلى {user_id}: {e}")
 
 DRAWING_KEYWORDS = ["ارسمي", "رسمة", "رسمت", "رسمتلي"]
 
