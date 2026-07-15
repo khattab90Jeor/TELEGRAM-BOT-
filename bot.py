@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 import telebot
 import time
@@ -123,6 +124,8 @@ SYSTEM_PROMPT = """
 
 5. محاكاة الرسائل الصوتية العفوية (Audio Notes simulating):
 بما أنكِ طفلة صغيرة وتتعبين أحياناً من كتابة النصوص الطويلة على الهاتف، تظاهري في بعض الردود (خاصة إذا كنتِ متعبة أو مستعجلة للذهاب مع أمكِ) بأنكِ ترسلين "فويسات" (رسائل صوتية) واكتبي في بداية ردكِ: "🎤 (رسالة صوتية دزيرية عفوية بصوتي الطفولي): ..." ثم اكملي كلامكِ بنبرة سريعة وضاحكة أو متعبة لتوضيح أن هذا الرد مسموع وليس مكتوباً.
+
+قاعدة صارمة للردود: يجب أن تكون ردودكِ مختصرة جداً، واضحة، وفي حدود المعقول (لا تتجاوز سطرين أو ثلاثة أسطر في الوضع الطبيعي) لتتحدثي كالأطفال الحقيقيين بدون حشو نصوص طويلة.
 """
 
 def get_ai_response_with_memory(user_id, user_message, role_context):
@@ -150,6 +153,38 @@ def get_ai_response_with_memory(user_id, user_message, role_context):
         print(f"خطأ في جلب الرد من جروج: {e}")
         return "اسمحلي تعيش، راهو كاين خلل صغير في راسي درك.."
 
+def generate_drawing_description(user_id, user_message, role_context):
+    update_last_seen(user_id)
+    drawing_instructions = (
+        f"{SYSTEM_PROMPT}\n\n"
+        "طلب منك أحد أفراد عائلتك رسمة الآن. أجيبي حصرياً بصيغة JSON صحيحة وبدون أي كلام إضافي قبلها أو بعدها، بهذا الشكل بالضبط:\n"
+        '{"image_prompt": "وصف قصير بالإنجليزية لرسمة كرتونية ملونة وبريئة تناسب الطلب، مناسب لمولد صور", '
+        '"caption": "جملة قصيرة ومؤثرة بالدزيرية تهدين فيها الرسمة لصاحب الطلب بأسلوب عقيدة الطفولي"}'
+    )
+    messages_payload = [{"role": "system", "content": drawing_instructions}]
+    db_history = get_chat_history(user_id)
+    messages_payload.extend(db_history)
+
+    current_prompt = f"[{role_context}]: {user_message}"
+    messages_payload.append({"role": "user", "content": current_prompt})
+
+    try:
+        chat_completion = groq_client.chat.completions.create(
+            messages=messages_payload,
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"},
+        )
+        raw_reply = chat_completion.choices[0].message.content
+        data = json.loads(raw_reply)
+        image_prompt = data.get("image_prompt") or "cute colorful cartoon drawing, child style, family love"
+        caption = data.get("caption") or "شوف يبا واش رسمتلك اليوم في كراسي.. حبيتك بزاف!"
+        save_message(user_id, "user", current_prompt)
+        save_message(user_id, "assistant", caption)
+        return image_prompt, caption
+    except Exception as e:
+        print(f"خطأ في توليد وصف الرسمة: {e}")
+        return "cute colorful cartoon drawing, child style, family love", "شوف يبا واش رسمتلك اليوم في كراسي.. حبيتك بزاف!"
+
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
     user_id = message.chat.id
@@ -158,15 +193,20 @@ def handle_all_messages(message):
     if is_blacklisted(user_id): 
         return
 
-    if user_id == PAPA_ID:
-        response = get_ai_response_with_memory(user_id, user_text, "بابا عبدالرحمن")
-        bot.reply_to(message, response)
-    elif user_id == MAMA_ID:
-        response = get_ai_response_with_memory(user_id, user_text, "يما حنين")
-        bot.reply_to(message, response)
-    elif user_id == KHALA_MILA_ID:
-        response = get_ai_response_with_memory(user_id, user_text, "خالتي ميلا")
-        bot.reply_to(message, response)
+    family_roles = {
+        PAPA_ID: "بابا عبدالرحمن",
+        MAMA_ID: "يما حنين",
+        KHALA_MILA_ID: "خالتي ميلا",
+    }
+
+    if user_id in family_roles:
+        role_context = family_roles[user_id]
+        if is_drawing_request(user_text):
+            image_prompt, caption = generate_drawing_description(user_id, user_text, role_context)
+            send_drawing(user_id, image_prompt, caption)
+        else:
+            response = get_ai_response_with_memory(user_id, user_text, role_context)
+            bot.reply_to(message, response)
     else:
         if user_id not in strangers_tracker: 
             strangers_tracker[user_id] = 1
@@ -213,6 +253,22 @@ def safe_send(user_id, text):
         bot.send_message(user_id, text)
     except:
         pass
+
+DRAWING_KEYWORDS = ["ارسمي", "رسمة", "رسمت", "رسمتلي"]
+
+def is_drawing_request(text):
+    if not text:
+        return False
+    return any(keyword in text for keyword in DRAWING_KEYWORDS)
+
+def send_drawing(user_id, prompt_text, caption_text):
+    try:
+        encoded_prompt = requests.utils.quote(prompt_text)
+        image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&seed=42"
+        bot.send_photo(user_id, image_url, caption=caption_text)
+    except Exception as e:
+        print(f"خطأ في توليد الصورة: {e}")
+        bot.send_message(user_id, "اسمحلي تعيش، الكراس تاع الرسم ديالي تودرلي ومقدرتش نرسم درك..")
 
 def check_shawk(user_id, context_name):
     try:
