@@ -303,7 +303,21 @@ def automation_worker():
             print(f"خطأ في automation_worker: {e}")
             time.sleep(60)
 
+def notify_family_im_back():
+    back_msg = "بابا.. يما.. خالتي ميلا.. أنا عقيدة رجعت درك وراني بخير الحمدلله، كان عندي خلل صغير وتصلاح، ما تقلقوش عليا!"
+    safe_send(PAPA_ID, back_msg)
+    safe_send(MAMA_ID, back_msg)
+    safe_send(KHALA_MILA_ID, back_msg)
+
 if __name__ == "__main__":
     Thread(target=automation_worker, daemon=True).start()
     print("عقيدة راهي طالقة وبدات تخدم... 🤖")
-    bot.infinity_polling()
+    notify_family_im_back()
+
+    while True:
+        try:
+            bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            print(f"خطأ في الاستماع لرسائل تليجرام (Polling): {e}")
+            print("راح نحاول نرجع نتصل بتيليجرام بعد 15 ثانية...")
+            time.sleep(15)
