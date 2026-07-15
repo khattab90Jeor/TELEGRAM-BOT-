@@ -1,0 +1,1 @@
+- [Groq daily token quota](groq-quota-limits.md) — free-tier 70b models hit low daily token caps fast; prefer 8b-instant models for high-frequency bot replies.
