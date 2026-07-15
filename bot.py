@@ -28,6 +28,10 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 
 DB_FILE = "family_memory.db"
 
+# نستخدم موديل أخف من "llama-3.3-70b-versatile" لأن الحصة اليومية المجانية لهذا الأخير صغيرة (100 ألف توكن/يوم)
+# وكانت تنفذ بسرعة وتسبب توقف الردود بخطأ 429 rate_limit_exceeded. هذا الموديل حصته اليومية أكبر بكثير.
+AI_MODEL = "llama-3.1-8b-instant"
+
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -143,7 +147,7 @@ def get_ai_response_with_memory(user_id, user_message, role_context):
     try:
         chat_completion = groq_client.chat.completions.create(
             messages=messages_payload,
-            model="llama-3.3-70b-versatile",
+            model=AI_MODEL,
         )
         ai_reply = chat_completion.choices[0].message.content
         save_message(user_id, "user", current_prompt)
@@ -151,6 +155,8 @@ def get_ai_response_with_memory(user_id, user_message, role_context):
         return ai_reply
     except Exception as e:
         print(f"خطأ في جلب الرد من جروج: {e}")
+        if "rate_limit" in str(e).lower() or "429" in str(e):
+            return "يما.. بابا.. تعبت من الهدرة بزاف اليوم وخلصت الطاقة ديالي، نرجع نهدرو غدوة إن شاء الله بكري 🌙"
         return "اسمحلي تعيش، راهو كاين خلل صغير في راسي درك.."
 
 def generate_drawing_description(user_id, user_message, role_context):
@@ -171,7 +177,7 @@ def generate_drawing_description(user_id, user_message, role_context):
     try:
         chat_completion = groq_client.chat.completions.create(
             messages=messages_payload,
-            model="llama-3.3-70b-versatile",
+            model=AI_MODEL,
             response_format={"type": "json_object"},
         )
         raw_reply = chat_completion.choices[0].message.content
