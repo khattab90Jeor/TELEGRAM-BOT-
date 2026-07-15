@@ -83,15 +83,23 @@ def add_to_blacklist(user_id):
     conn.commit()
     conn.close()
 
+_weather_cache = {"value": "صافي +28°C", "fetched_at": 0}
+
 def get_algiers_weather():
+    # نخزّن قراءة الطقس مؤقتاً (30 دقيقة) بدل استدعاء الإنترنت في كل رسالة،
+    # لأن هذا الاستدعاء كان يبطّئ كل رد (حتى 5 ثواني انتظار) ويسبب تأخر ظاهر عند العائلة.
+    now = time.time()
+    if now - _weather_cache["fetched_at"] < 1800:
+        return _weather_cache["value"]
     try:
-        url = "https://wttr.in"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            return response.text.strip()
-    except:
+        url = "https://wttr.in/Algiers?format=%C+%t"
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200 and response.text.strip():
+            _weather_cache["value"] = response.text.strip()
+    except Exception:
         pass
-    return "صافي +28°C"
+    _weather_cache["fetched_at"] = now
+    return _weather_cache["value"]
 
 init_db()
 
